@@ -65,9 +65,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <div class="card-body">
                         <h3 class="text-center mb-4">MiniBank</h3>
 
-                        <?php if ($msg): ?>
-                            <div class="alert alert-danger"><?= $msg ?></div>
-                        <?php endif; ?>
+                    
+                        <?php mostrarMensaje($msg, "alert");?>
 
                         <form action="" method="POST">
                             <div class="mb-3">
