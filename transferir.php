@@ -40,6 +40,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $msg = "La cuenta origen y destino no pueden ser la misma";
     } elseif ($importe <= 0) {
         $msg = "El importe debe ser positivo";
+       
     } else {
 
         $cuenta_origen = false;
@@ -55,7 +56,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!$cuenta_origen) {
             $msg = "La cuenta origen no pertenece al usuario";
 
-        } else {
+        } elseif( $cuenta_origen['importe'] < $importe ) {
+            $msg = "No hay saldo suficiente en la cuenta origen";
+
+        } else{
             /* Validar cuenta destino */
 
             try {
