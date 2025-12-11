@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once __DIR__ . '/conexion.php';
+require_once __DIR__ . '/util.php';
 
 $msg = "";
 
@@ -12,11 +13,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $password = $_POST['password'] ?? "";
 
     try {
-        $pdo = getConnection();
+        // $pdo = getConnection();
 
-        $stmt = $pdo->prepare("SELECT * FROM usuarios WHERE email = ?");
-        $stmt->execute([$email]);
-        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+        // $stmt = $pdo->prepare("SELECT * FROM usuarios WHERE email = ?");
+        // $stmt->execute([$email]);
+        // $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        $user = getUserByEmail($email);
+    
 
 
         if ($user && password_verify($password, $user['password'])) {
@@ -37,7 +41,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
     } catch (Exception $e) {
-        $msg = "Error interno en la base de datos" . $e->getMessage();
+        error_log("Error en la autenticación: " . $e->getMessage());
+        $msg = "Error en la autenticación";
     }
 }
 ?>

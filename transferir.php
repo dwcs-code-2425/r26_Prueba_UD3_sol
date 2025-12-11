@@ -6,15 +6,20 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 require_once __DIR__ . '/conexion.php';
-$pdo = getConnection();
+require_once __DIR__ . '/util.php';
+
 
 $msg = "";
 $user_id = $_SESSION['user_id'];
 
 /* ====== Cargar cuentas del usuario ====== */
-$stmt = $pdo->prepare("SELECT * FROM cuentas WHERE titular_id=?");
-$stmt->execute([$user_id]);
-$cuentas = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$cuentas = [];
+try {
+    $cuentas = getCuentas($_SESSION['user_id']);
+} catch (Exception $e) {
+    error_log("Error al obtener cuentas: " . $e->getMessage());
+    $msg .= "Error al cargar las cuentas.";
+}
 
 
 
@@ -26,53 +31,60 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $importe = floatval($_POST['importe']);
 
     /* Validación: cuenta origen del usuario */
-    $stmt = $pdo->prepare("SELECT * FROM cuentas WHERE id=? AND titular_id=?");
-    $stmt->execute([$origen, $user_id]);
-    $cuenta_origen = $stmt->fetch(PDO::FETCH_ASSOC);
+    // $stmt = $pdo->prepare("SELECT * FROM cuentas WHERE id=? AND titular_id=?");
+    // $stmt->execute([$origen, $user_id]);
+    // $cuenta_origen = $stmt->fetch(PDO::FETCH_ASSOC);
 
+    //Lo más sencillo de validar en primer lugar:
     if ($origen == $destino) {
         $msg = "La cuenta origen y destino no pueden ser la misma";
-    } elseif (!$cuenta_origen) {
-
-        $msg = "La cuenta origen no pertenece al usuario";
+    } elseif ($importe <= 0) {
+        $msg = "El importe debe ser positivo";
     } else {
-        /* Validar cuenta destino */
 
+        $cuenta_origen = false;
+        $cuenta_destino = false;
+        //comprobamos que la cuenta de origen pertenece al usuario
+        try {
+            $cuenta_origen = getCuentaPorIdYUserId($origen, $user_id);
+        } catch (Exception $e) {
+            error_log("Error al obtener la cuenta origen: " . $e->getMessage());
+            $msg = "Error al procesar la cuenta origen";
+        }
 
-        $stmt = $pdo->prepare("SELECT * FROM cuentas WHERE id=?");
-        $stmt->execute([$destino]);
-        $cuenta_destino = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$cuenta_origen) {
+            $msg = "La cuenta origen no pertenece al usuario";
 
-        if (!$cuenta_destino) {
-            $msg = "La cuenta destino no existe";
-        } elseif ($cuenta_origen['importe'] < $importe) {
-            $msg = "Saldo insuficiente";
-        } elseif($importe <= 0){
-            $msg = "El importe debe ser positivo";
         } else {
-            /* Transacción */
+            /* Validar cuenta destino */
+
             try {
-                $pdo->beginTransaction();
-
-                $stmt = $pdo->prepare("UPDATE cuentas SET importe = importe - ? WHERE id=?");
-                $stmt->execute([$importe, $origen]);
-
-                $stmt = $pdo->prepare("UPDATE cuentas SET importe = importe + ? WHERE id=?");
-                $stmt->execute([$importe, $destino]);
-
-                $pdo->commit();
-
-                $_SESSION['msg'] = "Transferencia realizada correctamente";
-                header("Location: listado.php");
-                exit;
-
+                $cuenta_destino = getCuentaPorId($destino);
             } catch (Exception $e) {
-                $pdo->rollback();
-                $msg = "Error en la transferencia";
+                error_log("Error al obtener la cuenta destino: " . $e->getMessage());
+                $msg = "Error al procesar la cuenta destino";
+                // $stmt = $pdo->prepare("SELECT * FROM cuentas WHERE id=?");
+                // $stmt->execute([$destino]);
+                // $cuenta_destino = $stmt->fetch(PDO::FETCH_ASSOC);
+            }
+            if (!$cuenta_destino) {
+                $msg = "La cuenta destino no existe";
+
+            } else {
+                /* Transacción */
+
+                if (transferir($origen, $destino, $importe)) {
+                    $_SESSION['msg'] = "Transferencia realizada correctamente";
+                    header("Location: listado.php");
+                    exit;
+                } else {
+                    $_SESSION["msg"] = "Error al realizar la transferencia";
+                }
             }
         }
     }
 }
+
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -89,9 +101,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         <h2 class="mb-4">Transferencia bancaria</h2>
 
-        <?php if ($msg): ?>
-            <div class="alert alert-danger"><?= $msg ?></div>
-        <?php endif; ?>
+
+        <?php mostrarMensaje($msg, "danger"); ?>
 
         <form action="" method="POST" class="card p-4 shadow-sm">
 
