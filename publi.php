@@ -3,8 +3,8 @@
 session_start();
 if (!isset($_SESSION['user_id'])) { header("Location: login.php"); exit; }
 
-/* Crear cookie que dura 30 días */
-setcookie("visto_publi", "1", time() + (30*24*60*60));
+/* Crear cookie que dura 1 día */
+setcookie("visto_publi", "1", time() + (24*60*60));
 ?>
 <!DOCTYPE html>
 <html lang="es">
